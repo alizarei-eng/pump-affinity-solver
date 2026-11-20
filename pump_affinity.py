@@ -21,14 +21,21 @@ def ask(prompt, valid):
         print("Valid choices:", ", ".join(valid))
 
 
-def calculate(data, same_diameter):
+def calculate(data, same_diameter, entered_ratios=None):
     """Solve ratios via two independent logarithmic equations; check consistency."""
     ratios = {}
     for name in ("N", "D", "Q", "H", "P", "rho"):
         a, b = data[name + "1"], data[name + "2"]
         if a is not None and b is not None:
             ratios[name] = b / a
+    entered_ratios = entered_ratios or {}
+    for name, value in entered_ratios.items():
+        if name in ratios and not math.isclose(ratios[name], value, rel_tol=1e-6):
+            raise ValueError(f"Conflicting {name} ratio: absolute values imply {ratios[name]:.6g}, entered {value:.6g}")
+        ratios[name] = value
     if same_diameter:
+        if "D" in ratios and not math.isclose(ratios["D"], 1.0, rel_tol=1e-6):
+            raise ValueError("Same diameter requires D2/D1 = 1")
         ratios["D"] = 1.0
     density_ratio = ratios.get("rho", 1.0)
     constraints = []
@@ -77,6 +84,7 @@ def main():
     data = dict.fromkeys(LABELS)
     target = "all"
     same_diameter = True
+    entered_ratios = {}
     print("PUMP AFFINITY SOLVER | Enter = unknown | B = back")
     while True:
         print("\nTARGET: 1 Flow  2 Head  3 Power  4 Speed  5 Diameter  6 All  0 Exit")
@@ -97,12 +105,19 @@ def main():
         print("\nKNOWN INPUTS (calculated results never overwrite these):")
         for index, key in enumerate(keys, 1):
             print(f"{index:2}. {key:5} = {data[key] if data[key] is not None else '?':>12} | {LABELS[key]}")
-        print("\nE Edit  C Calculate  T Target  D Diameter  R Reset  0 Exit")
-        action = ask("Select: ", ("e", "c", "t", "d", "r", "0"))
+        print("\nRATIOS (final / initial):")
+        for name in ("N", "Q", "H", "P", "D", "rho"):
+            if name == "D" and same_diameter:
+                print("D2/D1 = 1 (same diameter)")
+            else:
+                print(f"{name}2/{name}1 = {entered_ratios.get(name, '?')}")
+        print("\nE Edit values  V Edit ratio  C Calculate  T Target  D Diameter  R Reset  0 Exit")
+        action = ask("Select: ", ("e", "v", "c", "t", "d", "r", "0"))
         if action == "0":
             return
         if action == "r":
             data = dict.fromkeys(LABELS)
+            entered_ratios.clear()
         elif action == "t":
             print("1 Flow  2 Head  3 Power  4 Speed  5 Diameter  6 All")
             target = TARGETS[ask("Select: ", TARGETS)]
@@ -110,6 +125,34 @@ def main():
             same_diameter = ask("1 Same / 2 Different: ", ("1", "2")) == "1"
             if same_diameter:
                 data["D1"] = data["D2"] = None
+                entered_ratios.pop("D", None)
+        elif action == "v":
+            names = ["N", "Q", "H", "P", "rho"]
+            if not same_diameter:
+                names.append("D")
+            print("\nRATIO INPUT")
+            for index, name in enumerate(names, 1):
+                print(f"{index}. {name}2/{name}1 = {entered_ratios.get(name, '?')}")
+            selected = input("Ratio number (B = back): ").strip().lower()
+            if selected == "b":
+                continue
+            if not selected.isdigit() or not 1 <= int(selected) <= len(names):
+                print("Invalid ratio.")
+                continue
+            name = names[int(selected) - 1]
+            value = input(f"{name}2/{name}1 [Enter = clear, B = back]: ").strip()
+            if value.lower() == "b":
+                continue
+            if not value:
+                entered_ratios.pop(name, None)
+                continue
+            try:
+                number = float(value)
+                if not math.isfinite(number) or number <= 0:
+                    raise ValueError
+                entered_ratios[name] = number
+            except ValueError:
+                print("Enter a finite positive ratio.")
         elif action == "e":
             selected = input("Parameter number (B = back): ").strip().lower()
             if selected == "b":
@@ -133,7 +176,7 @@ def main():
                 print("Enter a finite positive number.")
         elif action == "c":
             try:
-                ratios, inferred = calculate(data, same_diameter)
+                ratios, inferred = calculate(data, same_diameter, entered_ratios)
             except ValueError as exc:
                 print("Cannot calculate:", exc)
                 continue
