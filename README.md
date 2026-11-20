@@ -16,10 +16,10 @@ Windows alternative: `py pump_affinity.py`.
 
 1. On launch, choose the desired quantity: **1** flow (Q), **2** head (H), **3** shaft power (P), **4** rotational speed (N), **5** impeller diameter (D), or **6** all.
 2. Choose **1** when the impeller diameter is unchanged (`D1=D2`); otherwise choose **2**.
-3. In the input review screen, choose **E** (Edit), enter the parameter number, and type its value. Blank input clears the parameter to unknown. **B** cancels an edit.
-4. Choose **C** (Calculate) to see inferred values, dimensionless ratios, and formulas.
+3. In the input review screen, choose **E** to edit absolute values, or **V** to enter a direct ratio (final/initial), such as `N2/N1=2`. Choose the parameter number, enter a positive number, or leave blank to clear. **B** cancels an edit.
+4. Choose **C** (Calculate) to see inferred values, dimensionless ratios, and formulas. You may mix absolute values and ratios. If both are given, the solver checks their consistency.
 5. Press Enter to return to the input screen, change values, and recalculate without restarting.
-6. Other controls: **T** change target, **D** change diameter setting, **R** reset all inputs, **0** exit.
+6. Other controls: **T** change target, **D** change diameter setting, **R** reset all absolute values and ratios, **0** exit.
 
 ## Worked example
 
@@ -32,6 +32,18 @@ Expected results:
 
 Reverse example: same diameter, `H1=40 m`, `H2=90 m`, `N1=1000 rpm` yields `N2=1500 rpm`.
 
+## Conceptual question: speed doubles
+
+Choose target **2 Head** (or **6 All**), then **1 Same diameter**. Choose **V Edit ratio**, select speed ratio `N2/N1`, and enter `2`. Choose **C Calculate**.
+
+Expected results, with no absolute speeds or heads required:
+- `N2/N1 = 2`
+- `Q2/Q1 = 2`
+- `H2/H1 = 4`
+- `P2/P1 = 8`
+
+You can also enter `N1=1000` and `N2=2000` through **E Edit values** instead. If `N2/N1=3` is entered simultaneously, the program rejects the contradiction. Direct ratios are available for speed, flow, head, shaft power, density, and (when different diameters are selected) impeller diameter. When **same diameter** is selected, `D2/D1=1` is enforced automatically.
+
 ## Equations
 
 Let `rN=N2/N1`, `rD=D2/D1`, and `rRho=rho2/rho1`.
@@ -42,7 +54,7 @@ H2/H1 = rN^2 * rD^2
 P2/P1 = rRho * rN^3 * rD^5
 ```
 
-The solver uses two independent known ratios, checks additional constraints for consistency, and computes unknown absolute values when a baseline is available.
+The solver accepts ratios entered directly or derived from paired absolute values. It uses two independent known ratios, checks additional constraints for consistency, and computes unknown absolute values when a baseline is available.
 
 ## Units
 
